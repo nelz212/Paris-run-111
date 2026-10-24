@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#60c5ee">
+<title>Paris Run</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#60c5ee;font-family:-apple-system,BlinkMacSystemFont,sans-serif;touch-action:none}canvas{width:100%;height:100%;display:block;touch-action:none}
+#fallback{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:25px;color:#fff;background:#60c5ee;font-weight:700}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas><div id="fallback">Paris Run n’a pas pu démarrer dans cet aperçu.<br><br>Ouvre le fichier dans un vrai navigateur Safari.</div>
+<script>
+(function(){
+'use strict';
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+if(!ctx){document.getElementById('fallback').style.display='flex';return;}
+let w=0,h=0,scale=1,started=false,ended=false,lane=1,score=0,coins=0,last=0,elapsed=0,obstacles=[],items=[],speed=260,swipeX=0,swipeY=0;
+function resize(){scale=Math.min(window.devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=Math.floor(w*scale);canvas.height=Math.floor(h*scale);ctx.setTransform(scale,0,0,scale,0,0);}
+window.addEventListener('resize',resize);resize();
+function laneX(n,y){const p=Math.max(.05,Math.min(1,(y-h*.43)/(h*.57)));return w/2+(n-1)*Math.min(w*.29,150)*(.45+p*.55);}
+function background(t){
+let g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#60c5ee');g.addColorStop(.65,'#f8d9b0');g.addColorStop(1,'#e9b98b');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+ctx.fillStyle='#fff1b0';ctx.beginPath();ctx.arc(w*.18,h*.13,25,0,7);ctx.fill();
+// Paris buildings
+for(let i=0;i<12;i++){let bw=w/10,bh=h*(.12+(i%4)*.035),x=i*bw-8,y=h*.48-bh;ctx.fillStyle=['#e8c9a8','#d5b496','#f0d8b9'][i%3];ctx.fillRect(x,y,bw+3,bh);ctx.fillStyle='#718e9c';for(let yy=y+10;yy<h*.47;yy+=19)for(let xx=x+6;xx<x+bw-4;xx+=13)ctx.fillRect(xx,yy,5,7);ctx.fillStyle='#9b7c66';ctx.fillRect(x,y,bw+3,4);}
+// Eiffel tower silhouette
+let tx=w*.72,base=h*.48,top=h*.12;ctx.strokeStyle='#485b60';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(tx-37,base);ctx.lineTo(tx,top);ctx.lineTo(tx+37,base);ctx.moveTo(tx-28,h*.39);ctx.lineTo(tx+28,h*.39);ctx.moveTo(tx-22,h*.32);ctx.lineTo(tx+22,h*.32);ctx.moveTo(tx-16,h*.24);ctx.lineTo(tx+16,h*.24);ctx.moveTo(tx-7,h*.17);ctx.lineTo(tx+7,h*.17);ctx.stroke();
+// running track
+const rw=Math.min(w*.95,520),topY=h*.43;ctx.fillStyle='#555d65';ctx.beginPath();ctx.moveTo(w/2-rw*.25,topY);ctx.lineTo(w/2+rw*.25,topY);ctx.lineTo(w/2+rw*.5,h);ctx.lineTo(w/2-rw*.5,h);ctx.closePath();ctx.fill();
+ctx.strokeStyle='#dce0df';ctx.lineWidth=3;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(w/2+(i-1.5)*rw*.13,topY);ctx.lineTo(w/2-rw*.5+i*rw/3,h);ctx.stroke();}
+ctx.strokeStyle='#343a40';ctx.lineWidth=3;for(let i=0;i<17;i++){let p=((i/17)+(t*.00035))%1,y=topY+(h-topY)*p*p,span=rw*p;ctx.beginPath();ctx.moveTo(w/2-span/2,y);ctx.lineTo(w/2+span/2,y);ctx.stroke();}
+}
+function player(){let x=laneX(lane,h*.78),y=h*.78;ctx.fillStyle='#17232d';ctx.fillRect(x-12,y+13,9,18);ctx.fillRect(x+4,y+13,9,18);ctx.fillStyle='#1685e8';ctx.fillRect(x-15,y-22,30,37);ctx.fillStyle='#edc19a';ctx.beginPath();ctx.arc(x,y-31,12,0,7);ctx.fill();ctx.fillStyle='#f6f1e8';ctx.fillRect(x-12,y-43,24,7);ctx.fillStyle='#e34b43';ctx.fillRect(x-12,y-36,24,4);}
+function addObstacle(){obstacles.push({lane:Math.floor(Math.random()*3),y:h*.44});}
+function addCoin(){items.push({lane:Math.floor(Math.random()*3),y:h*.44});}
+function hud(){ctx.shadowColor='#344';ctx.shadowBlur=4;ctx.fillStyle='white';ctx.font='bold 18px system-ui';ctx.fillText('🇫🇷 PARIS RUN',13,28);ctx.font='bold 15px system-ui';ctx.fillText('Score : '+Math.floor(score),13,51);ctx.fillText('🪙 '+coins,13,73);ctx.shadowBlur=0;}
+function center(s,y,size){ctx.textAlign='center';ctx.font='800 '+size+'px system-ui';ctx.fillStyle='white';ctx.shadowColor='#333';ctx.shadowBlur=5;ctx.fillText(s,w/2,y);ctx.shadowBlur=0;ctx.textAlign='left';}
+function reset(){started=false;ended=false;lane=1;score=0;coins=0;elapsed=0;obstacles=[];items=[];speed=260;}
+function update(dt,t){if(started){score+=dt*10;speed=Math.min(440,260+score);elapsed+=dt;if(elapsed>1.1){elapsed=0;addObstacle();}if(Math.random()<dt*.95)addCoin();}
+for(let i=obstacles.length-1;i>=0;i--){let o=obstacles[i];o.y+=speed*dt;let x=laneX(o.lane,o.y),s=18+o.y/h*23;ctx.fillStyle='#df4545';ctx.fillRect(x-s/2,o.y-s/2,s,s);ctx.fillStyle='#fff';ctx.fillRect(x-s*.28,o.y-s*.12,s*.56,3);if(started&&o.lane===lane&&Math.abs(o.y-h*.78)<23){started=false;ended=true;}if(o.y>h+30)obstacles.splice(i,1);}
+for(let i=items.length-1;i>=0;i--){let o=items[i];o.y+=speed*dt;let x=laneX(o.lane,o.y);ctx.fillStyle='#ffda42';ctx.beginPath();ctx.arc(x,o.y,7+o.y/h*4,0,7);ctx.fill();ctx.strokeStyle='#f29c1b';ctx.lineWidth=2;ctx.stroke();if(started&&o.lane===lane&&Math.abs(o.y-h*.78)<22){coins++;items.splice(i,1);continue;}if(o.y>h+20)items.splice(i,1);}
+}
+function frame(now){let dt=Math.min(.04,Math.max(0,(now-last)/1000));last=now;background(now);update(dt,now);if(!ended||started)player();hud();if(!started){ctx.fillStyle='rgba(0,0,0,.32)';ctx.fillRect(0,0,w,h);if(ended){center('FIN DE PARTIE',h*.42,28);center('Score : '+Math.floor(score)+' • Pièces : '+coins,h*.48,17);center('Tape pour recommencer',h*.55,18);}else{center('PARIS RUN',h*.39,34);center('Cours dans les rues de Paris !',h*.46,16);center('Tape pour commencer',h*.53,19);}}requestAnimationFrame(frame);}
+function change(d){lane=Math.max(0,Math.min(2,lane+d));}
+canvas.addEventListener('pointerdown',e=>{swipeX=e.clientX;swipeY=e.clientY;if(!started){if(ended)reset();started=true;}});
+canvas.addEventListener('pointerup',e=>{if(!started)return;let dx=e.clientX-swipeX,dy=e.clientY-swipeY;if(Math.abs(dx)>20)change(dx<0?-1:1);else if(Math.abs(dy)>30)change(dy<0?1:-1);else change(e.clientX<w/2?-1:1);});
+window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')change(-1);if(e.key==='ArrowRight')change(1);if(e.key===' '&&!started){if(ended)reset();started=true;}});
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
